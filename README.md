@@ -1,63 +1,35 @@
-### :construction: **This project is in very early development and is not currently usable. Once releases are rolled out, it will be safe to use.** :construction:
+# `git-context`
 
-# Git Context
+### :construction: **This project is in very early development. It is not currently usable but is being actively designed.** :construction:
 
 A Git extension for managing multiple repositories and developer personas within a single working directory.
 
-Stop juggling `--git-dir`, complex aliases, or separate directories. Keep your public dotfiles, private keys, and work projects all in one place, seamlessly.
-
 ## The Problem
 
-You have a `~/dotfiles` repository for sharing your shell configuration with the world. But you also have sensitive files you want to track in a *separate*, private repository, like `rclone` configs, `git` credentials, or SSH keys. More generally, you have a singe directory in which you want contents from different repositories to be there, but track them seamlessly.
+You have a `~/dotfiles` repository for sharing your shell configuration with the world. But you also have sensitive files you want to track in a *separate*, private repository, like `rclone` configs or SSH keys. More generally, you have a single directory where you want content from different repositories to coexist and be tracked seamlessly.
 
-You can try to set up symlinks from different directories—storing the different repos—in the target directory; however, this also means handling VCS in two separate directories, and no information at all from what is tracked and by what in the target directory. This makes tracking and development teadious and inefficient.
+Trying to merge differently-tracked content is fraught with problems:
 
-Furthermore, trying to directly merge differently tracked content is out of the question: different Git directories, especially called anything but `.git/` in a worktree, cause various problems including
-- Duplicate READMEs, gitignores etc.
-- Terminal prompts not synced with correct tracker (or none).
-- Editors in the worktree confused as to what files are tracked, ignored, etc.
-- Managing the `--git-dir` flags and aliases including them is inefficient and does not sacale to work generally.
+  * Standard Git commands get confused by multiple git directories.
+  * Terminal prompts and IDE integrations break.
+  * Managing `--git-dir` flags or complex aliases is tedious and doesn't scale.
+  * Files like `README.md` or `.gitignore` that exist in both repos create conflicts in the working directory.
 
 ## The Solution
 
-`git-context` manages multiple Git repositories within one working tree by cleverly swapping what the `.git` directory points to. It uses a symbolic link (`.git`) which can be instantly pointed to different underlying Git directories (e.g., `.git-public`, `.git-private`).
+`git-context` orchestrates multiple Git repositories within one working tree. It uses a symbolic link named `.git` that it can instantly point to different underlying repositories (e.g., `.git-public`, `.git-private`).
 
-This means all your tools that expect a single `.git` directory—your terminal prompt (Starship, Powerlevel10k), your IDE (VS Code), and `git` itself—work perfectly, no matter which context is active.
-
-### How It Looks
-
-<!-- *(some cool terminal recording or something idk)* -->
-
-Here's a conceptual demo:
-
-```sh
-# You are in your dotfiles directory, the prompt shows the "public" context
-~/dotfiles ❯ git context switch private
-✔ Switched context to "private"
-
-# The prompt immediately updates to show the new context!
-# Your git commands now operate on the private repo.
-~/dotfiles [private] ❯ git status
-On branch main
-Your branch is up to date with 'origin/main'.
-
-Untracked files:
-  (use "git add <file>..." to include in what will be committed)
-        new-secret.key
-
-# Switch back just as easily
-~/dotfiles [private] ❯ git context switch public
-✔ Switched context to "public"
-```
+This makes all your tools—your terminal prompt (Starship, Powerlevel10k), your IDE (VS Code), and `git` itself—work perfectly, no matter which context is active. It goes a step further by actively managing files that are shared between contexts, giving you a "branch-like" switching experience.
 
 ## Core Features
 
   * **Seamless Context Switching:** Instantly switch the active repository with `git context switch <name>`.
-  * **Automatic Ignore Management:** When you `git context track` a file in one context, it's automatically ignored by all other contexts. No more `.gitignore` headaches\!
-  * **Command Passthrough:** Run a command on any context without switching. Perfect for a quick push: `git context exec private -- git push`.
-  * **Shell Integration:** Display the active context name directly in your shell prompt.
-  * **Safe and Fast:** Written in Rust for performance and memory safety.
-  * **Simple Configuration:** A single, human-readable `.gitcontexts.toml` file manages your workspace.
+  * **Context-Dependent Files:** Designate files like `README.md` or `.gitignore` as "managed" with `git context keep <file>`. `git-context` will then automatically show the correct version of the file for the active context, hiding the others.
+  * **Automatic Ignore Management:** Use standard `git add` and `git commit`. When you're done, run `git context refresh`, and the tool will ensure files from one context are automatically ignored by all others. No more cluttered `.gitignore` files.
+  * **Command Passthrough:** Run a command on an inactive context without a full switch. Perfect for a quick push: `git context exec private -- git push`.
+  * **Shell Integration:** Display the active context name directly in your shell prompt for immediate clarity.
+  * **Safe and Fast:** Written in Rust for performance, safety, and reliability.
+  * **Simple Configuration:** A single, human-readable `.contexts` TOML file manages your entire workspace.
 
 ## Installation
 
@@ -67,41 +39,53 @@ Once the project is on `crates.io`, you can install it via `cargo`:
 cargo install git-context
 ```
 
-Pre-compiled binaries will also be available from the GitHub Releases page for Windows, macOS, and Linux.
+Pre-compiled binaries will also be available from the [GitHub Releases](https://github.com/angelodibella/git-context/releases) page.
 
 ## Quick Start
 
-1.  **Initialize your first context.**
-    Navigate to an existing Git repository:
+1.  **Initialize your first context from an existing repo.**
 
     ```sh
     cd ~/dotfiles
     git context init public
     ```
 
-    This will rename your `.git` to `.git-public`, create a `.git` symlink pointing to it, and set up your configuration file.
+    This creates your `.contexts` config and prepares the workspace.
 
-2.  **Create a new, empty context.**
+2.  **Tell `git-context` which files to manage.**
+    If your `public` repo has a `README.md` and `.gitignore` that are unique to it, register them:
+
+    ```sh
+    git context keep README.md
+    git context keep .gitignore
+    ```
+
+3.  **Create and switch to a new context.**
 
     ```sh
     git context new private
+    git context switch private
     ```
 
-    This creates a new, empty Git repository at `.git-private` and adds it to your configuration. Now you can switch between `public` and `private`.
+    At this point, the `README.md` and `.gitignore` from the `public` context will have vanished from your working directory, ready for you to create new, private versions.
 
-3.  **Track a file.**
-    Add a new file that should only belong to your `private` repository:
+4.  **Work as usual, then refresh.**
+    Add and commit files to your `private` context using normal git commands.
 
     ```sh
-    # Make sure you are in the right context
-    git context switch private
-
-    # Track the file using the special command
-    git context track secrets.txt
+    echo "SECRET_KEY=123" > api.key
+    git add api.key
+    git commit -m "Add secret key"
     ```
 
-    This will `git add secrets.txt` to the `private` repo and simultaneously add `secrets.txt` to a global ignore file, so your `public` repo won't see it.
+    When you're ready, run the refresh command to update the global ignore rules:
 
-## Contributing
+    ```sh
+    git context refresh
+    ```
 
-This project is open-source and contributions are welcome\! Feel free to open an issue or submit a pull request.
+    Now, your `public` context will correctly ignore `api.key`.
+
+## Future Features
+
+* Add `git context clone <url> <name>` with optional `<name>` to merge directly from remote into a context.
