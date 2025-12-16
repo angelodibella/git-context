@@ -15,7 +15,7 @@ pub enum Commands {
     Switch { name: String },
     Keep { path: String },
     Unkeep { path: String },
-    Exec { context: String, args: Vec },
+    Exec { context: String, args: Vec<String> },
     Refresh,
     Status,
 }
