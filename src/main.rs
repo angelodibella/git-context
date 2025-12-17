@@ -12,16 +12,10 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Init { name } => ops::init(&name)?,
         Commands::Switch { name } => ops::switch(&name)?,
-        Commands::New { name } => println!("New context with name: {}", name),
+        Commands::New { name } => ops::new(&name)?,
         Commands::Keep { path } => println!("Kept file at path: {}", path),
         Commands::Unkeep { path } => println!("Unkept file at path: {}", path),
-        Commands::Exec { context, args } => {
-            println!(
-                "Executed command '{}' in context: {}",
-                args.join(" "),
-                context
-            )
-        }
+        Commands::Exec { context, args } => ops::exec(&context, args)?,
         Commands::Refresh => println!("Switch called with name: "),
         Commands::Status => println!("Switch called with name:"),
     }

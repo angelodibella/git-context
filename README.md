@@ -15,6 +15,8 @@ Trying to merge differently-tracked content is fraught with problems:
   * Managing `--git-dir` flags or complex aliases is tedious and doesn't scale.
   * Files like `README.md` or `.gitignore` that exist in both repos create conflicts in the working directory.
 
+**Note:** The flag `--separate-git-dir` is avoided due to the path to the directory being absolute. Changing, say, the parent directory's name would break this.
+
 ## The Solution
 
 `git-context` orchestrates multiple Git repositories within one working tree. It uses a symbolic link named `.git` that it can instantly point to different underlying repositories (e.g., `.git-public`, `.git-private`).
