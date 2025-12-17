@@ -7,15 +7,21 @@ use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+fn ensure_managed() -> Result<()> {
+    let metadata = fs::symlink_metadata(".git").context("Failed to read '.git' metadata")?;
+    if !metadata.file_type().is_symlink() {
+        bail!("The '.git' directory is not a symlink. Is this repo managed by git-context?");
+    }
+
+    Ok(())
+}
+
 pub fn init(name: &str) -> Result<()> {
     if !Path::new(".git").exists() {
         bail!("Git repository not found. Run 'git init' first.");
     }
 
-    let metadata = fs::symlink_metadata(".git")?;
-    if metadata.file_type().is_symlink() {
-        bail!("Git is already managed by git-context (it is a symlink).");
-    }
+    ensure_managed()?;
 
     let new_git_dir = format!(".git-{}", name);
     fs::rename(".git", &new_git_dir).context("Failed to rename existing '.git' directory")?;
@@ -56,10 +62,7 @@ pub fn switch(name: &str) -> Result<()> {
         .path
         .clone();
 
-    let metadata = fs::symlink_metadata(".git").context("Failed to read '.git' metadata")?;
-    if !metadata.file_type().is_symlink() {
-        bail!("The '.git' directory is not a symlink. Is this repo managed by git-context?");
-    }
+    ensure_managed()?;
 
     fs::remove_file(".git").context("Failed to remove old '.git' symlink")?;
     symlink(&target_path, ".git").context("Failed to switch '.git' symlink")?;
@@ -72,10 +75,7 @@ pub fn switch(name: &str) -> Result<()> {
 }
 
 pub fn new(name: &str) -> Result<()> {
-    let metadata = fs::symlink_metadata(".git")?;
-    if !metadata.file_type().is_symlink() {
-        bail!("The '.git' directory is not a symlink. Is this repo managed by git-context?");
-    }
+    ensure_managed()?;
 
     let mut config = Config::load()?;
     if config.contexts.contains_key(name) {
@@ -136,11 +136,38 @@ pub fn new(name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn keep() -> Result<()> {
-    todo!()
+pub fn keep(path: &str) -> Result<()> {
+    let mut config =
+        Config::load().context("Could not load contexts. Have you run 'git context init'?")?;
+
+    if !Path::new(path).exists() {
+        bail!("Target to keep not found")
+    }
+
+    let target_path = PathBuf::from(path);
+    if config.managed_files.contains(&target_path) {
+        println!(
+            "Target is already managed by the context '{}'",
+            config.active_context
+        );
+        return Ok(());
+    }
+
+    config.managed_files.push(target_path);
+    config.save()?;
+
+    Ok(())
 }
-pub fn unkeep() -> Result<()> {
-    todo!()
+
+pub fn unkeep(path: &str) -> Result<()> {
+    let mut config =
+        Config::load().context("Could not load contexts. Have you run 'git context init'?")?;
+
+    let target_path = PathBuf::from(path);
+    config.managed_files.retain(|x| x != &target_path);
+    config.save()?;
+
+    Ok(())
 }
 
 pub fn exec(context_name: &str, args: Vec<String>) -> Result<()> {
@@ -152,12 +179,16 @@ pub fn exec(context_name: &str, args: Vec<String>) -> Result<()> {
         .get(context_name)
         .ok_or_else(|| anyhow::anyhow!("Context '{}' not found", context_name))?;
 
-    let git_dir = context.path.to_str().unwrap();
+    let git_dir = context
+        .path
+        .to_str()
+        .context("Path contains invalid characters")?;
 
     if args.is_empty() {
         bail!("No command specified");
     }
 
+    ensure_managed()?;
     let program = &args[0];
     let program_args = &args[1..];
     let status = Command::new(program)
@@ -179,7 +210,12 @@ pub fn status() -> Result<()> {
         .context("Could not load contexts. Is this repository managed by git-context?")?;
 
     println!("Active context: {}", config.active_context);
-    println!("\nContexts:");
+    println!("\nKept files:");
+    for file in config.managed_files {
+        print!("{}\t", file.to_string_lossy());
+    }
+
+    println!("\n\nContexts:");
     for context in config.contexts.keys() {
         print!("{}\t", context);
     }
