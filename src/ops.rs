@@ -72,11 +72,14 @@ pub fn switch(name: &str) -> Result<()> {
 }
 
 pub fn new(name: &str) -> Result<()> {
-    if Path::new(".contexts").exists() {
-        let config = Config::load()?;
-        if config.contexts.contains_key(name) {
-            bail!("Context '{}' already exists", name);
-        }
+    let metadata = fs::symlink_metadata(".git")?;
+    if !metadata.file_type().is_symlink() {
+        bail!("The '.git' directory is not a symlink. Is this repo managed by git-context?");
+    }
+
+    let mut config = Config::load()?;
+    if config.contexts.contains_key(name) {
+        bail!("Context '{}' already exists", name);
     }
 
     let target_path_str = format!(".git-{}", name);
@@ -116,24 +119,17 @@ pub fn new(name: &str) -> Result<()> {
         ])
         .status()?;
 
-    let mut config = if Path::new(".contexts").exists() {
-        Config::load()?
-    } else {
-        Config {
-            active_context: name.to_string(),
-            managed_files: Vec::new(),
-            contexts: HashMap::new(),
-        }
-    };
-
     config.contexts.insert(
         name.to_string(),
         Context {
             path: PathBuf::from(&target_path_str),
         },
     );
-    config.active_context = name.to_string();
 
+    fs::remove_file(".git").context("Failed to remove old '.git' symlink")?;
+    symlink(&target_path, ".git").context("Failed to switch '.git' symlink")?;
+
+    config.active_context = name.to_string();
     config.save()?;
 
     println!("Created new context '{}'", name);
