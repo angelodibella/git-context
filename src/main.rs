@@ -17,7 +17,7 @@ fn main() -> Result<()> {
         Commands::Unkeep { path } => println!("Unkept file at path: {}", path),
         Commands::Exec { context, args } => ops::exec(&context, args)?,
         Commands::Refresh => println!("Switch called with name: "),
-        Commands::Status => println!("Switch called with name:"),
+        Commands::Status => ops::status()?,
     }
 
     Ok(())

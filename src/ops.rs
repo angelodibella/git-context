@@ -175,5 +175,16 @@ pub fn refresh() -> Result<()> {
     todo!()
 }
 pub fn status() -> Result<()> {
-    todo!()
+    let config = Config::load()
+        .context("Could not load contexts. Is this repository managed by git-context?")?;
+
+    println!("Active context: {}", config.active_context);
+    println!("\nContexts:");
+    for context in config.contexts.keys() {
+        print!("{}\t", context);
+    }
+
+    println!();
+
+    Ok(())
 }
