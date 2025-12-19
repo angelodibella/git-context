@@ -91,3 +91,4 @@ Pre-compiled binaries will also be available from the [GitHub Releases](https://
 ## Future Features
 
 * Add `git context clone <url> <name>` with optional `<name>` to merge directly from remote into a context.
+* Automatic keeping of duplicate files on creationg of new context.
