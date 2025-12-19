@@ -27,6 +27,7 @@ impl Config {
     pub fn save(&self) -> Result<()> {
         let content = toml::to_string_pretty(self).context("Failed to serialize config object")?;
         fs::write(".contexts", content).context("Failed to write to contexts file")?;
+
         Ok(())
     }
 }

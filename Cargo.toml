@@ -3,11 +3,11 @@ name = "git-context"
 version = "0.2.0"
 edition = "2024"
 authors = ["Angelo Di Bella <angelo.dibella2020@gmail.com>"]
-description = "A Git extension for managing multiple repositories and developer personas within a single working directory."
+description = "A Git extension for managing multiple repositories within a single working directory."
 license = "MIT"
 repository = "https://github.com/angelodibella/git-context"
 readme = "README.md"
-keywords = ["git", "cli", "dotfiles", "workspace"]
+keywords = ["git", "cli", "dotfiles", "productivity", "project-management"]
 categories = ["command-line-utilities", "development-tools"]
 
 

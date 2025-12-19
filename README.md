@@ -1,8 +1,6 @@
 # `git-context`
 
-### :construction: **This project is in very early development. It is not currently usable but is being actively designed.** :construction:
-
-A Git extension for managing multiple repositories and developer personas within a single working directory.
+A Git extension for managing multiple repositories within a single working directory.
 
 ## The Problem
 
@@ -14,14 +12,13 @@ Trying to merge differently-tracked content is fraught with problems:
   * Terminal prompts and IDE integrations break.
   * Managing `--git-dir` flags or complex aliases is tedious and doesn't scale.
   * Files like `README.md` or `.gitignore` that exist in both repos create conflicts in the working directory.
-
-**Note:** The flag `--separate-git-dir` is avoided due to the path to the directory being absolute. Changing, say, the parent directory's name would break this.
+  * Being bound by usint `--separate-git-dir` which uses (fragile) absolute paths.
 
 ## The Solution
 
 `git-context` orchestrates multiple Git repositories within one working tree. It uses a symbolic link named `.git` that it can instantly point to different underlying repositories (e.g., `.git-public`, `.git-private`).
 
-This makes all your tools—your terminal prompt (Starship, Powerlevel10k), your IDE (VS Code), and `git` itself—work perfectly, no matter which context is active. It goes a step further by actively managing files that are shared between contexts, giving you a "branch-like" switching experience.
+This makes all your tools (your terminal prompt, your text editor/IDE, and `git` itself) work perfectly, no matter which context is active. It goes a step further by actively managing files that are shared between contexts, giving you a branch-like switching experience.
 
 ## Core Features
 
@@ -35,7 +32,7 @@ This makes all your tools—your terminal prompt (Starship, Powerlevel10k), your
 
 ## Installation
 
-Once the project is on `crates.io`, you can install it via `cargo`:
+You can install it via `cargo`:
 
 ```sh
 cargo install git-context
@@ -66,7 +63,6 @@ Pre-compiled binaries will also be available from the [GitHub Releases](https://
 
     ```sh
     git context new private
-    git context switch private
     ```
 
     At this point, the `README.md` and `.gitignore` from the `public` context will have vanished from your working directory, ready for you to create new, private versions.
@@ -80,15 +76,9 @@ Pre-compiled binaries will also be available from the [GitHub Releases](https://
     git commit -m "Add secret key"
     ```
 
-    When you're ready, run the refresh command to update the global ignore rules:
-
-    ```sh
-    git context refresh
-    ```
-
     Now, your `public` context will correctly ignore `api.key`.
 
 ## Future Features
 
 * Add `git context clone <url> <name>` with optional `<name>` to merge directly from remote into a context.
-* Automatic keeping of duplicate files on creationg of new context.
+* Automatic managing of duplicate files on creationg of new context.
