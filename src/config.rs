@@ -7,12 +7,12 @@ use std::path::PathBuf;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Context {
     pub path: PathBuf,
+    pub managed_files: Vec<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub active_context: String,
-    pub managed_files: Vec<PathBuf>,
     pub contexts: HashMap<String, Context>,
 }
 
