@@ -1,6 +1,6 @@
 [package]
 name = "git-context"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Angelo Di Bella <angelo.dibella2020@gmail.com>"]
 description = "A Git extension for managing multiple repositories and developer personas within a single working directory."

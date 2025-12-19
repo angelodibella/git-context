@@ -37,8 +37,6 @@ pub fn init(name: &str) -> Result<()> {
         bail!("Git repository not found. Run 'git init' first.");
     }
 
-    ensure_managed()?;
-
     let new_git_dir = format!(".git-{}", name);
     fs::rename(".git", &new_git_dir).context("Failed to rename existing '.git' directory")?;
 
@@ -193,11 +191,15 @@ pub fn new(name: &str) -> Result<()> {
     fs::remove_file(".git").context("Failed to remove old '.git' symlink")?;
     symlink(&target_path, ".git").context("Failed to switch '.git' symlink")?;
 
-    config.active_context = name.to_string();
     config.save()?;
+    switch(name)?;
 
     println!("Created new context '{}'", name);
     Ok(())
+}
+
+pub fn clone(url: &str) -> Result<()> {
+    todo!()
 }
 
 pub fn keep(path: &str) -> Result<()> {
@@ -311,7 +313,7 @@ pub fn status() -> Result<()> {
     println!("\nAvailable Contexts:");
     for (name, _ctx) in &config.contexts {
         let arrow = if name == &config.active_context {
-            " (active)"
+            "(active)"
         } else {
             ""
         };
