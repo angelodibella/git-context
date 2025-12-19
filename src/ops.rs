@@ -2,10 +2,44 @@ use crate::config::{Config, Context};
 use anyhow::anyhow;
 use anyhow::{Context as _, Result, bail};
 use std::collections::HashMap;
+use std::env;
 use std::fs;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+/// Scans upwards to find the project root (marked by .contexts or .git)
+fn find_root() -> Result<(PathBuf, PathBuf)> {
+    let original_dir = env::current_dir().context("Failed to get current directory")?;
+    let mut ancestor = original_dir.as_path();
+
+    loop {
+        if ancestor.join(".contexts").exists() || ancestor.join(".git").exists() {
+            return Ok((ancestor.to_path_buf(), original_dir));
+        }
+
+        match ancestor.parent() {
+            Some(parent) => ancestor = parent,
+            None => bail!(
+                "Not inside a git-context managed repository (could not find .contexts or .git)"
+            ),
+        }
+    }
+}
+
+/// Jump to the project root
+fn setup_worktree() -> Result<PathBuf> {
+    let (root, original_dir) = find_root()?;
+
+    let relative_offset = original_dir
+        .strip_prefix(&root)
+        .unwrap_or(Path::new("."))
+        .to_path_buf();
+
+    env::set_current_dir(&root).context("Failed to change to project root")?;
+
+    Ok(relative_offset)
+}
 
 /// Ensures project is managed by git-context.
 fn ensure_managed() -> Result<()> {
@@ -14,6 +48,45 @@ fn ensure_managed() -> Result<()> {
         bail!("The '.git' directory is not a symlink. Is this repo managed by git-context?");
     }
     // TODO: Add more checks, a symlink doesn't cut it.
+
+    Ok(())
+}
+
+/// Ignore git-context-specific files
+///
+/// Uses .git/info/exclude to bypass the need for a .gitignore, keeping the contexts clean.
+fn add_default_ignores(git_dir: &Path) -> Result<()> {
+    let exclude_path = git_dir.join("info").join("exclude");
+
+    if let Some(parent) = exclude_path.parent() {
+        fs::create_dir_all(parent).context("Failed to create git info directory")?;
+    }
+
+    // Read existing content or start empty
+    let mut content = if exclude_path.exists() {
+        fs::read_to_string(&exclude_path).context("Failed to read git exclude file")?
+    } else {
+        String::new()
+    };
+
+    let patterns = [".contexts", ".git-*"];
+    let mut changed = false;
+
+    for pattern in patterns {
+        if !content.contains(pattern) {
+            if !content.is_empty() && !content.ends_with('\n') {
+                content.push('\n');
+            }
+            content.push_str(pattern);
+            content.push('\n');
+            changed = true;
+        }
+    }
+
+    if changed {
+        fs::write(&exclude_path, content).context("Failed to update git exclude file")?;
+        println!("Added default ignores to {:?}", exclude_path);
+    }
 
     Ok(())
 }
@@ -39,6 +112,8 @@ pub fn init(name: &str) -> Result<()> {
 
     let new_git_dir = format!(".git-{}", name);
     fs::rename(".git", &new_git_dir).context("Failed to rename existing '.git' directory")?;
+
+    add_default_ignores(Path::new(&new_git_dir))?;
 
     // Use symlinks for compatibility with git tools (prompts, editors, etc.)
     symlink(&new_git_dir, ".git").context("Failed to create '.git' symlink")?;
@@ -68,6 +143,8 @@ pub fn init(name: &str) -> Result<()> {
 
 pub fn switch(name: &str) -> Result<()> {
     ensure_managed()?;
+    setup_worktree()?;
+
     let mut config = Config::load()?;
     if config.active_context == name {
         println!("Already in the context '{}'", name);
@@ -136,6 +213,7 @@ pub fn switch(name: &str) -> Result<()> {
 ///
 /// Assume git-context is already managing the current git project.
 pub fn new(name: &str) -> Result<()> {
+    setup_worktree()?;
     ensure_managed()?;
 
     let mut config = Config::load()?;
@@ -180,6 +258,8 @@ pub fn new(name: &str) -> Result<()> {
         ])
         .status()?;
 
+    add_default_ignores(Path::new(&target_path_str))?;
+
     config.contexts.insert(
         name.to_string(),
         Context {
@@ -203,14 +283,21 @@ pub fn clone(url: &str) -> Result<()> {
 }
 
 pub fn keep(path: &str) -> Result<()> {
+    let offset = setup_worktree()?;
     ensure_managed()?;
 
     let mut config = Config::load()?;
-    if !Path::new(path).exists() {
-        bail!("Target to keep not found")
-    }
 
-    let target_path = PathBuf::from(path);
+    let raw_path = Path::new(path);
+    let target_path = if raw_path.is_absolute() {
+        bail!("Please use relative paths");
+    } else {
+        offset.join(raw_path)
+    };
+
+    if !target_path.exists() {
+        bail!("Target '{:?}' not found", target_path);
+    }
 
     // Mutable references are cool!
     let context = config
@@ -233,6 +320,7 @@ pub fn keep(path: &str) -> Result<()> {
 }
 
 pub fn unkeep(path: &str) -> Result<()> {
+    let offset = setup_worktree()?;
     ensure_managed()?;
 
     let mut config =
@@ -244,27 +332,41 @@ pub fn unkeep(path: &str) -> Result<()> {
         .get_mut(&config.active_context)
         .ok_or_else(|| anyhow::anyhow!("Active context not found"))?;
 
-    let target_path = PathBuf::from(path);
+    let target_path = offset.join(path);
+
+    let initial_len = context.managed_files.len();
     context.managed_files.retain(|x| x != &target_path);
-    config.save()?;
+
+    if context.managed_files.len() == initial_len {
+        println!(
+            "File '{:?}' was not being managed by context '{}'",
+            target_path, config.active_context
+        );
+    } else {
+        println!(
+            "Stopped managing '{:?}' in context '{}'",
+            target_path, config.active_context
+        );
+        config.save()?;
+    }
 
     Ok(())
 }
-
 pub fn exec(context_name: &str, args: Vec<String>) -> Result<()> {
     ensure_managed()?;
-    let config =
-        Config::load().context("Could not load contexts. Have you run 'git context init'?")?;
+    let (root, _) = find_root()?;
+
+    let config_path = root.join(".contexts");
+    let content = fs::read_to_string(&config_path)
+        .context("Could not load contexts. Have you run 'git context init'?")?;
+    let config: Config = toml::from_str(&content)?;
 
     let context = config
         .contexts
         .get(context_name)
-        .ok_or_else(|| anyhow::anyhow!("Context '{}' not found", context_name))?;
+        .ok_or_else(|| anyhow!("Context '{}' not found", context_name))?;
 
-    let git_dir = context
-        .path
-        .to_str()
-        .context("Path contains invalid characters")?;
+    let absolute_git_dir = root.join(&context.path);
 
     if args.is_empty() {
         bail!("No command specified");
@@ -272,14 +374,14 @@ pub fn exec(context_name: &str, args: Vec<String>) -> Result<()> {
 
     let program = &args[0];
     let program_args = &args[1..];
-    let _status = Command::new(program)
+
+    Command::new(program)
         .args(program_args)
-        .env("GIT_DIR", git_dir)
-        .env("GIT_WORK_TREE", ".")
+        .env("GIT_DIR", absolute_git_dir)
+        .env("GIT_WORK_TREE", root)
         .status()
         .context(format!("Failed to execute '{}'", program))?;
 
-    // TODO: Propagate the exit code
     Ok(())
 }
 
@@ -288,6 +390,7 @@ pub fn refresh() -> Result<()> {
 }
 
 pub fn status() -> Result<()> {
+    setup_worktree()?;
     ensure_managed()?;
 
     let config = Config::load()
