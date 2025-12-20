@@ -1,6 +1,5 @@
 use crate::config::{Config, Context};
-use anyhow::anyhow;
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use std::collections::HashMap;
 use std::env;
 use std::fs;

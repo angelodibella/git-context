@@ -2,7 +2,7 @@ mod commands;
 mod config;
 mod ops;
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use clap::Parser;
 use commands::{Cli, Commands};
 
