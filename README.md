@@ -38,7 +38,13 @@ You can install it via `cargo`:
 cargo install git-context
 ```
 
-Pre-compiled binaries will also be available from the [GitHub Releases](https://github.com/angelodibella/git-context/releases) page.
+Or you can install it for the following Linux distributions using their respective package managers:
+
+### Arch Linux
+
+```
+yay -S git-context
+```
 
 ## Quick Start
 
