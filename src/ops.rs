@@ -229,7 +229,7 @@ pub fn new(name: &str) -> Result<()> {
     println!("Creating git repository at {}...", target_path_str);
 
     let status = Command::new("git")
-        .args(&["init", "--bare", &target_path_str])
+        .args(["init", "--bare", &target_path_str])
         .output()
         .context("Failed to run git init")?;
 
@@ -238,7 +238,7 @@ pub fn new(name: &str) -> Result<()> {
     }
 
     Command::new("git")
-        .args(&[
+        .args([
             "--git-dir",
             &target_path_str,
             "config",
@@ -248,7 +248,7 @@ pub fn new(name: &str) -> Result<()> {
         .status()?;
 
     Command::new("git")
-        .args(&[
+        .args([
             "--git-dir",
             &target_path_str,
             "config",
@@ -268,7 +268,7 @@ pub fn new(name: &str) -> Result<()> {
     );
 
     fs::remove_file(".git").context("Failed to remove old '.git' symlink")?;
-    symlink(&target_path, ".git").context("Failed to switch '.git' symlink")?;
+    symlink(target_path, ".git").context("Failed to switch '.git' symlink")?;
 
     config.save()?;
     switch(name)?;
@@ -413,7 +413,7 @@ pub fn status() -> Result<()> {
     }
 
     println!("\nAvailable Contexts:");
-    for (name, _ctx) in &config.contexts {
+    for name in config.contexts.keys() {
         let arrow = if name == &config.active_context {
             "(active)"
         } else {
