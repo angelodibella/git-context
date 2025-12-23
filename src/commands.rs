@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -30,12 +32,12 @@ pub enum Commands {
 
     /// Keep files or directories unique to the current context
     Keep {
-        path: String,
+        path: PathBuf,
     },
 
     /// Discard files or directories from being unique to the current context
     Unkeep {
-        path: String,
+        path: PathBuf,
     },
 
     /// Execute commands passed through to an available context

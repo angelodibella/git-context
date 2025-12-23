@@ -282,17 +282,16 @@ pub fn clone(url: &str) -> Result<()> {
 }
 
 /// TODO: Support moving/deleting managed files
-pub fn keep(path: &str) -> Result<()> {
+pub fn keep(path: PathBuf) -> Result<()> {
     let offset = setup_worktree()?;
     ensure_managed()?;
 
     let mut config = Config::load()?;
 
-    let raw_path = Path::new(path);
-    let target_path = if raw_path.is_absolute() {
+    let target_path = if path.is_absolute() {
         bail!("Please use relative paths");
     } else {
-        offset.join(raw_path)
+        offset.join(path)
     };
 
     if !target_path.exists() {
@@ -319,7 +318,7 @@ pub fn keep(path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn unkeep(path: &str) -> Result<()> {
+pub fn unkeep(path: PathBuf) -> Result<()> {
     let offset = setup_worktree()?;
     ensure_managed()?;
 
