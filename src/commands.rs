@@ -1,21 +1,50 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "git-context")]
-#[command(about = "A Git extension for managing multiple repositories...")]
+#[command(version, about, long_about = None)]
 pub struct Cli {
+    #[arg(short, long)]
+    #[arg(default_value_t = false)]
+    pub verbose: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }
 
 #[derive(Subcommand)]
 pub enum Commands {
-    Init { name: String },
-    New { name: String },
-    Switch { name: String },
-    Keep { path: String },
-    Unkeep { path: String },
-    Exec { context: String, args: Vec<String> },
+    /// Initializes new context from a present Git repository
+    Init {
+        context: String,
+    },
+
+    /// Creates a clean Git repository and adds it as a context
+    New {
+        context: String,
+    },
+
+    /// Switches context
+    Switch {
+        context: String,
+    },
+
+    /// Keep files or directories unique to the current context
+    Keep {
+        path: String,
+    },
+
+    /// Discard files or directories from being unique to the current context
+    Unkeep {
+        path: String,
+    },
+
+    /// Execute commands passed through to an available context
+    Exec {
+        context: String,
+        args: Vec<String>,
+    },
+
     Refresh,
     Status,
+    // TODO: Add manual entry in Git API for '--help' flag, since only 'help' and '-h' work
 }

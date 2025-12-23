@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+pub const CONTEXTS_FILE: &str = ".contexts";
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Context {
     pub path: PathBuf,
@@ -18,7 +20,7 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self> {
-        let content = fs::read_to_string(".contexts")
+        let content = fs::read_to_string(CONTEXTS_FILE)
             .context("Failed to read contexts file. Have you run 'init'?")?;
         let parsed = toml::from_str(&content).context("Failed to parse contexts file. There might be semantic errors inside it, or it might be corrupted.")?;
         Ok(parsed)
@@ -26,7 +28,7 @@ impl Config {
 
     pub fn save(&self) -> Result<()> {
         let content = toml::to_string_pretty(self).context("Failed to serialize config object")?;
-        fs::write(".contexts", content).context("Failed to write to contexts file")?;
+        fs::write(CONTEXTS_FILE, content).context("Failed to write to contexts file")?;
 
         Ok(())
     }

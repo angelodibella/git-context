@@ -1,4 +1,4 @@
-use crate::config::{Config, Context};
+use crate::config::{CONTEXTS_FILE, Config, Context};
 use anyhow::{Context as _, Result, anyhow, bail};
 use std::collections::HashMap;
 use std::env;
@@ -13,7 +13,7 @@ fn find_root() -> Result<(PathBuf, PathBuf)> {
     let mut ancestor = original_dir.as_path();
 
     loop {
-        if ancestor.join(".contexts").exists() || ancestor.join(".git").exists() {
+        if ancestor.join(CONTEXTS_FILE).exists() || ancestor.join(".git").exists() {
             return Ok((ancestor.to_path_buf(), original_dir));
         }
 
@@ -46,7 +46,7 @@ fn ensure_managed() -> Result<()> {
     if !metadata.file_type().is_symlink() {
         bail!("The '.git' directory is not a symlink. Is this repo managed by git-context?");
     }
-    // TODO: Add more checks, a symlink doesn't cut it.
+    // TODO: Add more checks, a symlink doesn't cut it
 
     Ok(())
 }
@@ -68,7 +68,7 @@ fn add_default_ignores(git_dir: &Path) -> Result<()> {
         String::new()
     };
 
-    let patterns = [".contexts", ".git-*"];
+    let patterns = [CONTEXTS_FILE, ".git-*"];
     let mut changed = false;
 
     for pattern in patterns {
@@ -281,6 +281,7 @@ pub fn clone(url: &str) -> Result<()> {
     todo!()
 }
 
+/// TODO: Support moving/deleting managed files
 pub fn keep(path: &str) -> Result<()> {
     let offset = setup_worktree()?;
     ensure_managed()?;
@@ -355,7 +356,7 @@ pub fn exec(context_name: &str, args: Vec<String>) -> Result<()> {
     ensure_managed()?;
     let (root, _) = find_root()?;
 
-    let config_path = root.join(".contexts");
+    let config_path = root.join(CONTEXTS_FILE);
     let content = fs::read_to_string(&config_path)
         .context("Could not load contexts. Have you run 'git context init'?")?;
     let config: Config = toml::from_str(&content)?;
